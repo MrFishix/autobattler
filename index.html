@@ -1,1246 +1,905 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Русские шашки — выбор цвета, первый ход, Профи+ и окно окончания</title>
-  <style>
-    :root {
-      --light: #f2d2a2;
-      --dark: #7a4b2f;
-      --accent: #3aa2ff;
-      --accent2: #ff7b54;
-      --bg: #111417;
-      --panel: #1a1f24;
-      --text: #e9eef2;
-      --muted: #9fb0bf;
-      --ok: #2ecc71;
-      --bad: #ff6b6b;
+<meta charset="utf-8">
+<title>Пошаговый автобаттлер</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg: radial-gradient(1200px 600px at 10% -10%, #cce4ff40, transparent),
+          radial-gradient(1000px 500px at 110% 30%, #ffd1dc40, transparent),
+          linear-gradient(180deg, #0f172a, #0b1024);
+    --card-bg: #ffffff18;
+    --card-brd: #ffffff2a;
+    --text: #e6eaf5;
+    --muted: #a3acc2;
+    --accent: #7dd3fc;
+    --accent-2: #c084fc;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --err: #ef4444;
+    --chip-bg: #ffffff22;
+    --shadow: 0 10px 30px #00000040;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg: linear-gradient(180deg, #eef2ff, #ffffff);
+      --card-bg: #ffffffcc;
+      --card-brd: #e6e9f5;
+      --text: #0b1220;
+      --muted: #5b667d;
+      --accent: #2563eb;
+      --accent-2: #7c3aed;
+      --chip-bg: #f3f4f6;
+      --shadow: 0 10px 24px #0b122015;
     }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: radial-gradient(1200px 800px at 20% -10%, #1c2430 0%, #111417 60%);
-      color: var(--text);
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-      -webkit-text-size-adjust: 100%;
-    }
-    .app {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-      width: min(100%, 960px);
-    }
-    .topbar {
-      background: var(--panel);
-      border: 1px solid #26303a;
-      border-radius: 14px;
-      padding: 12px 14px;
-      display: grid;
-      gap: 10px;
-      align-items: center;
-    }
-    .topbar .row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .left, .right {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .title { font-weight: 700; letter-spacing: 0.2px; }
-    select, button {
-      background: #202832;
-      color: var(--text);
-      border: 1px solid #314153;
-      padding: 10px 14px;
-      border-radius: 12px;
-      cursor: pointer;
-      outline: none;
-      touch-action: manipulation;
-      font: inherit;
-    }
-    button.primary { background: linear-gradient(180deg, #2f86ff, #1d63cc); border: none; }
-    button:disabled { opacity: 0.65; cursor: default; }
-    .info { color: var(--muted); font-size: 14px; }
+  }
+  html,body{height:100%}
+  body{
+    margin:0; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .container{max-width: 1100px; margin: 24px auto; padding: 0 16px;}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background: var(--card-bg); border: 1px solid var(--card-brd); border-radius:16px; padding:14px 16px; box-shadow: var(--shadow);
+    backdrop-filter: blur(8px);
+  }
+  .brand{display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.2px;}
+  .brand .logo{font-size:22px}
+  .streak{display:inline-flex; align-items:center; gap:8px; background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color:#fff; padding:6px 10px; border-radius:999px; font-weight:600; box-shadow: var(--shadow);}
+  .controls{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .btn{
+    padding:8px 12px; border-radius:10px; border:1px solid var(--card-brd);
+    background: var(--chip-bg); color: var(--text); cursor:pointer; transition: .2s transform, .2s background;
+  }
+  .btn:hover{transform: translateY(-1px); background: #ffffff33}
+  .btn.primary{background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:white; border:0}
+  .slider-wrap{display:flex; align-items:center; gap:8px; color: var(--muted); font-size:14px}
+  input[type=range]{accent-color: var(--accent); width:160px}
 
-    .board-wrap {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 14px;
-      align-items: start;
-    }
-    .board {
-      width: min(96vw, 92vh, 640px);
-      aspect-ratio: 1/1;
-      background: #12161a;
-      border-radius: 18px;
-      border: 1px solid #2b3642;
-      padding: 8px;
-      display: grid;
-      place-items: center;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-      touch-action: manipulation;
-    }
-    .grid {
-      width: 100%;
-      height: 100%;
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      grid-template-rows: repeat(8, 1fr);
-      border-radius: 12px;
-      overflow: hidden;
-      touch-action: manipulation;
-    }
-    .sq { position: relative; user-select: none; }
-    .sq.light { background: var(--light); }
-    .sq.dark  { background: var(--dark); }
-    .coords {
-      position: absolute; top: 6px; left: 8px;
-      font-size: 11px; color: rgba(255,255,255,0.55);
-      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-      pointer-events: none;
-    }
+  .grid{display:grid; gap:16px}
+  .cols-2{grid-template-columns: repeat(2, minmax(0,1fr))}
+  .cols-3{grid-template-columns: repeat(3, minmax(0,1fr))}
+  @media(max-width:900px){ .cols-2, .cols-3{grid-template-columns: 1fr} }
 
-    .piece {
-      position: absolute;
-      inset: 8%;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      box-shadow: inset 0 3px 8px rgba(0,0,0,0.6), 0 8px 16px rgba(0,0,0,0.35);
-      transition: transform .1s ease, outline-color .12s ease, box-shadow .12s ease;
-      cursor: grab;
-      outline: 0 solid rgba(58,162,255,0.0);
-      touch-action: none; /* важно для перетаскивания на тач-экранах */
-    }
-    .piece.white {
-      background: radial-gradient(circle at 35% 30%, #ffffff, #d7d7d7 65%, #bdbdbd);
-      border: 2px solid #c8c8c8;
-    }
-    .piece.black {
-      background: radial-gradient(circle at 35% 30%, #3a3a3a, #1f1f1f 65%, #151515);
-      border: 2px solid #3c3c3c;
-      color: #f0f0f0;
-    }
-    .piece:active { transform: scale(0.98); }
-    .selected .piece { outline-width: 3px; outline-color: rgba(58,162,255,0.9); }
-    .hint::after {
-      content: "";
-      position: absolute;
-      inset: 22%;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(58,162,255,0.20), rgba(58,162,255,0.0));
-      border: 2px dashed rgba(58,162,255,0.7);
-      animation: pulse 1.2s infinite ease-in-out;
-      pointer-events: none;
-    }
-    @keyframes pulse {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.05); opacity: 0.4; }
-      100% { transform: scale(0.95); opacity: 0.8; }
-    }
-    .dest {
-      position: absolute;
-      inset: 30%;
-      border-radius: 50%;
-      background: rgba(58,162,255,0.22);
-      border: 3px solid rgba(58,162,255,0.9);
-      box-shadow: 0 0 0 2px rgba(58,162,255,0.18);
-      cursor: pointer;
-      transition: transform .08s ease;
-      touch-action: manipulation;
-    }
-    .dest:active { transform: scale(0.95); }
-    .capture-mark::after {
-      content: "";
-      position: absolute; inset: 0;
-      border: 2px solid var(--accent2);
-      border-radius: 8px;
-      box-shadow: inset 0 0 12px rgba(255,123,84,0.4);
-      pointer-events: none;
-    }
-    .king::before {
-      content: "♛";
-      font-size: 26px;
-      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
-    }
+  .card{
+    background: var(--card-bg); border:1px solid var(--card-brd); border-radius:16px; padding:16px; box-shadow: var(--shadow);
+    backdrop-filter: blur(8px);
+  }
+  h1{margin:0; font-size:20px}
+  h2{margin:0 0 10px; font-size:18px}
 
-    /* Визуал для перетаскивания */
-    .piece.dragging {
-      cursor: grabbing;
-      transition: none !important;
-      z-index: 1000;
-      outline-width: 3px;
-      outline-color: rgba(58,162,255,0.9);
-      box-shadow: inset 0 3px 8px rgba(0,0,0,0.6), 0 12px 24px rgba(0,0,0,0.55);
-      pointer-events: none; /* пропускаем события к клеткам под фигурой */
-    }
-    .drag-dest { /* метки целей, созданные во время перетаскивания */
-      pointer-events: none;
-    }
-    .drag-cap {
-      position: relative;
-    }
+  .stat{display:flex; align-items:center; gap:8px; color: var(--muted)}
+  .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background: var(--chip-bg); font-weight:600}
 
-    .sidebar {
-      min-width: 260px;
-      background: var(--panel);
-      border: 1px solid #26303a;
-      border-radius: 14px;
-      padding: 12px;
-      display: grid;
-      gap: 10px;
-      height: fit-content;
-    }
-    .status { font-weight: 700; font-size: 15px; }
-    .note { color: var(--muted); font-size: 14px; line-height: 1.35; }
-    .badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 12px; color: #b8c7d6;
-      background: #1f2630; border: 1px solid #2b3847; border-radius: 999px;
-      padding: 6px 10px;
-    }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: #2f86ff; display: inline-block; }
-    .footer { text-align: center; color: var(--muted); font-size: 12px; }
+  .hpbar{position:relative; height:22px; border-radius:999px; background:#ffffff1a; overflow:hidden; border:1px solid var(--card-brd)}
+  .hpfill{position:absolute; left:0; top:0; bottom:0; width:0%; background:#22c55e; transition: width .45s ease, background .3s ease}
+  .hptext{position:relative; z-index:2; text-align:center; font-weight:700; font-size:13px; color:#fff; text-shadow:0 1px 2px #0006}
+  .hpbar.hit .hpfill{animation: hitflash .45s}
+  @keyframes hitflash{
+    0%{filter:brightness(1.6)}
+    100%{filter:brightness(1)}
+  }
 
-    /* Блок счёта */
-    .score {
-      display: grid;
-      gap: 6px;
-      margin-top: 4px;
-      padding-top: 6px;
-      border-top: 1px dashed #2b3847;
-    }
-    .score .line {
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .score strong { font-weight: 700; }
+  .row{display:flex; gap:10px; flex-wrap:wrap}
 
-    @media (max-width: 860px) {
-      .board-wrap { grid-template-columns: 1fr; }
-      .sidebar { order: -1; }
-      .left, .right { width: 100%; justify-content: space-between; }
-      .right { gap: 8px; }
-      .right select { flex: 1 1 140px; }
-      .right button { flex: 1 1 140px; }
-    }
-    @media (max-width: 560px) {
-      .board { width: min(98vw, 84vh); padding: 6px; }
-      .coords { display: none; }
-      .piece { inset: 6%; }
-      .dest { inset: 24%; border-width: 3px; }
-      .topbar { padding: 10px; }
-      .title { font-size: 16px; }
-      .status { font-size: 16px; }
-      .note { font-size: 13px; }
-    }
+  .log{background:#0a0f1d; color:#c7f9cc; border-radius:12px; padding:12px; height:330px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; border:1px solid #0d1328}
+  .muted{color: var(--muted)}
 
-    /* Модальное окно окончания партии */
-    .modal {
-      position: fixed;
-      inset: 0;
-      display: none;
-      place-items: center;
-      background: rgba(0,0,0,0.6);
-      z-index: 9999;
-      padding: 16px;
-      backdrop-filter: blur(2px);
-      animation: fade .15s ease;
-    }
-    .modal.show { display: grid; }
-    @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+  .chip{display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px; border:1px solid var(--card-brd); background: var(--chip-bg)}
+  .chip.red{background:#ef44441a; color:#fecaca; border-color:#ef44444a}
+  .chip.blue{background:#3b82f61a; color:#bfdbfe; border-color:#3b82f64a}
+  .chip.brown{background:#92400e1a; color:#fed7aa; border-color:#b453094a}
+  .effects{display:flex; gap:6px; flex-wrap:wrap}
 
-    .dialog {
-      width: min(92vw, 520px);
-      background: var(--panel);
-      border: 1px solid #2b3847;
-      border-radius: 14px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
-      padding: 16px;
-      display: grid;
-      gap: 10px;
-    }
-    .dialog h2 {
-      margin: 0;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .dialog h2 .em {
-      width: 10px; height: 10px; border-radius: 50%;
-    }
-    .dialog p { margin: 0; color: var(--muted); }
-    .dialog .actions {
-      margin-top: 8px;
-      display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
-    }
-    .btn {
-      padding: 10px 14px; border-radius: 12px; border: 1px solid #2b3847; background: #202832; color: var(--text);
-      cursor: pointer; font: inherit;
-    }
-    .btn.primary { background: linear-gradient(180deg, #2f86ff, #1d63cc); border: none; }
-    .btn.ghost { background: transparent; }
+  .entity{display:grid; gap:10px}
+  .entity .hdr{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .title{display:flex; align-items:center; gap:10px; font-size:18px; font-weight:800}
+  .title .emoji{font-size:22px}
 
-    /* Новая мобильная адаптация панели управления */
-    .right { width: 100%; }
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(220px, 1fr));
-      gap: 10px 12px;
-      align-items: center;
-      width: 100%;
-    }
-    .field {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-    }
-    .field label { white-space: nowrap; }
+  .weapon{display:flex; align-items:center; gap:8px}
+  .badge{display:inline-flex; align-items:center; gap:6px; background: var(--chip-bg); padding:4px 8px; border-radius:8px; border:1px solid var(--card-brd)}
+  .sep{height:1px; background: var(--card-brd); margin:10px 0}
 
-    /* Кнопка «Новая партия» на всю ширину */
-    .controls > .primary {
-      grid-column: 1 / -1;
-      justify-self: stretch;
-    }
-
-    /* Планшеты/телефоны: 2 колонки */
-    @media (max-width: 860px) {
-      .controls { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
-    }
-    /* Узкие телефоны: 1 колонка, метка над селектом */
-    @media (max-width: 480px) {
-      .controls { grid-template-columns: 1fr; }
-      .field { grid-template-columns: 1fr; }
-      .field label { margin-bottom: 4px; }
-    }
-    /* Комфортная зона касания */
-    select { min-height: 42px; }
-  </style>
+  .center{display:flex; align-items:center; justify-content:center}
+</style>
 </head>
 <body>
-  <div class="app">
-    <div class="topbar">
-      <div class="row">
-        <div class="left">
-          <div class="title">Русские шашки с искусственным интеллектом</div>
-          <span class="badge" id="badge"><span class="dot"></span> Вы играете белыми</span>
-        </div>
-        <div class="right">
-          <div class="controls">
-            <div class="field">
-              <label for="colorSel">Ваш цвет</label>
-              <select id="colorSel">
-                <option value="W" selected>Белые</option>
-                <option value="B">Чёрные</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="firstSel">Первый ход</label>
-              <select id="firstSel">
-                <option value="player" selected>Игрок</option>
-                <option value="ai">Компьютер</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="difficulty">Сложность</label>
-              <select id="difficulty">
-                <option value="2">Лёгкая</option>
-                <option value="4" selected>Средняя</option>
-                <option value="8">Сложная</option>
-                <option value="pro">Профи (очень сложно)</option>
-              </select>
-            </div>
-
-            <button id="newGame" class="primary">Новая партия</button>
-          </div>
-        </div>
-      </div>
-      <div class="info">Опции применяются при начале новой партии. «Профи» — итеративное углубление с кэшем позиций, увеличено время на ход для более сильной игры.</div>
-    </div>
-
-    <div class="board-wrap">
-      <div class="board">
-        <div id="grid" class="grid" role="grid" aria-label="Игровая доска шашек"></div>
-      </div>
-      <div class="sidebar">
-        <div class="status" id="status">Ваш ход.</div>
-        <div class="note">Правила: русские шашки — обратные взятия для простых, «летающие» дамки, принудительное взятие (максимум), немедленная коронация с продолжением рубки.</div>
-
-        <div class="score">
-          <div class="line">
-            <div>Счёт (вы):</div>
-            <div><strong id="scWins">0</strong> — <strong id="scLosses">0</strong></div>
-          </div>
-          <button id="resetScore" class="btn">Сбросить счёт</button>
-        </div>
+<div class="container">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">⚔️</div>
+      <div>
+        <div style="font-size:16px; font-weight:800;">Пошаговый автобаттлер</div>
+        <div class="stat"><span class="pill">Серия побед: <span id="wins">0</span></span></div>
       </div>
     </div>
-
-    <div class="footer">© Русские шашки by MrFish</div>
-  </div>
-
-  <!-- Модальное окно окончания партии -->
-  <div id="endModal" class="modal" aria-modal="true" role="dialog" aria-labelledby="endTitle">
-    <div class="dialog">
-      <h2 id="endTitle"><span id="endDot" class="em"></span><span id="endHeading">Партия окончена</span></h2>
-      <p id="endText">Хотите начать новую партию?</p>
-      <div class="actions">
-        <button id="playAgainBtn" class="btn primary">Новая партия</button>
-        <button id="closeModalBtn" class="btn ghost">Закрыть</button>
+    <div class="controls">
+      <div class="slider-wrap">
+        ⏱ Скорость
+        <input id="speed" type="range" min="200" max="1200" step="50" value="600">
+        <span id="speedval" class="muted">600 мс</span>
       </div>
+      <button class="btn" id="btn-pause">⏸ Пауза</button>
+      <button class="btn" id="btn-step" title="Сделать ход (в паузе)">👉 Ход</button>
+      <button class="btn primary" id="btn-restart-top">🔄 Сброс</button>
     </div>
   </div>
 
-  <script>
-    // Константы
-    const SIZE = 8;
-    const EMPTY = 0, W = 1, WK = 2, B = -1, BK = -2;
+  <div class="grid cols-2" style="margin-top:16px;">
+    <!-- Левая колонка -->
+    <div class="grid" style="gap:16px;">
+      <div class="card" id="choose" style="display:none;">
+        <h2>Выбор класса</h2>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn" data-action="choose" data-cls="Разбойник">🗡️ Разбойник</button>
+          <button class="btn" data-action="choose" data-cls="Воин">⚔️ Воин</button>
+          <button class="btn" data-action="choose" data-cls="Варвар">🪓 Варвар</button>
+        </div>
+        <div class="sep"></div>
+        <div class="stat">Стартовые атрибуты: Сила <b id="bstr">-</b>, Ловк <b id="bagi">-</b>, Вынос <b id="bend">-</b></div>
+      </div>
 
-    // Динамичный выбор сторон
-    let humanColor = W;
-    let aiColor = B;
+      <div class="card" id="player-card">
+        <div class="entity">
+          <div class="hdr">
+            <div class="title"><span class="emoji">🧙‍♂️</span> Игрок</div>
+            <div class="badge">Уровни: Разб <b id="lv-rogue">0</b>, Воин <b id="lv-warrior">0</b>, Варв <b id="lv-barbarian">0</b></div>
+          </div>
+          <div class="hpbar" id="pbar"><div class="hpfill" id="pbar-fill"></div><div class="hptext" id="pbar-text">-/-</div></div>
+          <div class="row">
+            <div class="badge">Сила: <b id="pstr">-</b></div>
+            <div class="badge">Ловк: <b id="pagi">-</b></div>
+            <div class="badge">Вынос: <b id="pend">-</b></div>
+          </div>
+          <div class="weapon">
+            <div class="badge">Оружие: <span id="wicon">⚔️</span> <b id="wname">-</b> (<span id="wdmg">-</span>)</div>
+            <div class="chip" id="wdtype-chip">Тип: <span id="wdtype">-</span></div>
+          </div>
+        </div>
+      </div>
 
-    // Состояние
-    const state = {
-      board: null,
-      turn: W,
-      selected: null,
-      legalMoves: [],
-      difficulty: 4,        // глубина для обычных уровней
-      mode: 'depth',        // 'depth' | 'pro'
-      proTimeMs: 3500,      // Профи+: ~3.5с на ход
-      aiThinking: false,
-      gameOver: false,
-      drag: null            // состояние перетаскивания
+      <div class="card" id="loot" style="display:none;">
+        <h2>Добыча</h2>
+        <div class="row">
+          <div class="badge">Выпало: <span id="loot-emoji">❓</span> <b id="loot-name">-</b> (<span id="loot-dmg">-</span>)</div>
+          <div class="chip" id="loot-type-chip">Тип: <span id="loot-type">-</span></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="badge">Текущее: <span id="curw-emoji">❓</span> <b id="curw-name">-</b> (<span id="curw-dmg">-</span>)</div>
+          <div class="chip" id="curw-type-chip">Тип: <span id="curw-type">-</span></div>
+        </div>
+        <div class="row" style="margin-top:12px;">
+          <button class="btn primary" data-action="loot" data-take="yes">Взять</button>
+          <button class="btn" data-action="loot" data-take="no">Оставить</button>
+        </div>
+      </div>
+
+      <div class="card" id="levelup" style="display:none;">
+        <h2>Повышение уровня</h2>
+        <div class="muted">Максимальный суммарный уровень — 3. Выберите класс:</div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn" data-action="level" data-cls="Разбойник">🗡️ Разбойник</button>
+          <button class="btn" data-action="level" data-cls="Воин">⚔️ Воин</button>
+          <button class="btn" data-action="level" data-cls="Варвар">🪓 Варвар</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Журнал</h2>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+
+    <!-- Правая колонка -->
+    <div class="grid" style="gap:16px;">
+      <div class="card" id="fight" style="display:none;">
+        <div class="entity">
+          <div class="hdr">
+            <div class="title"><span class="emoji" id="memoji">👹</span> <span id="mname">-</span></div>
+            <div class="weapon">
+              <div class="badge">Оружие: <span id="mwicon">⚔️</span> <b id="mwname">-</b> (<span id="mwdmg">-</span>)</div>
+              <div class="chip" id="mwdtype-chip">Тип: <span id="mwdtype">-</span></div>
+            </div>
+          </div>
+          <div class="hpbar" id="mbar"><div class="hpfill" id="mbar-fill"></div><div class="hptext" id="mbar-text">-/-</div></div>
+          <div class="row">
+            <div class="badge">Сила: <b id="mstr">-</b></div>
+            <div class="badge">Ловк: <b id="magi">-</b></div>
+            <div class="badge">Вынос: <b id="mend">-</b></div>
+          </div>
+          <div class="sep"></div>
+          <div class="effects" id="last-effects"></div>
+          <div class="muted" id="auto-status">Ожидание…</div>
+        </div>
+      </div>
+
+      <div class="card center" id="victory" style="display:none;">
+        <div>
+          <h2>🎉 Поздравляем!</h2>
+          <div>Вы победили 5 монстров подряд. Игра пройдена!</div>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn primary" id="btn-restart-1">Начать заново</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card center" id="defeat" style="display:none;">
+        <div>
+          <h2>💀 Поражение</h2>
+          <div>Вы пали в бою. Серия побед сброшена.</div>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn primary" id="btn-restart-2">Начать заново</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // -------------------- Константы --------------------
+  const DAMAGE_SLASH = "Рубящий";
+  const DAMAGE_BLUNT = "Дробящий";
+  const DAMAGE_PIERCE = "Колющий";
+
+  // -------------------- Оружие -----------------------
+  class Weapon {
+    constructor(name, damage, dmg_type) {
+      this.name = name;
+      this.damage = damage;
+      this.dmg_type = dmg_type;
+    }
+  }
+
+  const WEAPONS = {
+    "Меч": new Weapon("Меч", 3, DAMAGE_SLASH),
+    "Дубина": new Weapon("Дубина", 3, DAMAGE_BLUNT),
+    "Кинжал": new Weapon("Кинжал", 2, DAMAGE_PIERCE),
+    "Топор": new Weapon("Топор", 4, DAMAGE_SLASH),
+    "Копье": new Weapon("Копье", 3, DAMAGE_PIERCE),
+    "Легендарный Меч": new Weapon("Легендарный Меч", 10, DAMAGE_SLASH),
+  };
+
+  const weaponIcon = (name) => ({
+    "Меч":"⚔️","Дубина":"🔨","Кинжал":"🗡️","Топор":"🪓","Копье":"🗡️","Легендарный Меч":"🗡️✨"
+  }[name] || "⚔️");
+
+  const monsterIcon = (name) => ({
+    "Гоблин":"👺","Скелет":"☠️","Слайм":"🧪","Призрак":"👻","Голем":"🗿","Дракон":"🐉"
+  }[name] || "👹");
+
+  const dmgChipClass = (t) => t===DAMAGE_SLASH ? "red" : t===DAMAGE_PIERCE ? "blue" : "brown";
+
+  // -------------------- Игровые классы --------------------
+  const CLASS_ROGUE = "Разбойник";
+  const CLASS_WARRIOR = "Воин";
+  const CLASS_BARBARIAN = "Варвар";
+
+  const CLASS_HP_PER_LEVEL = {
+    [CLASS_ROGUE]: 4,
+    [CLASS_WARRIOR]: 5,
+    [CLASS_BARBARIAN]: 6,
+  };
+
+  const CLASS_START_WEAPON = {
+    [CLASS_ROGUE]: WEAPONS["Кинжал"],
+    [CLASS_WARRIOR]: WEAPONS["Меч"],
+    [CLASS_BARBARIAN]: WEAPONS["Дубина"],
+  };
+
+  // -------------------- Монстры --------------------
+  class Monster {
+    constructor(name, max_hp, weapon, strength, agility, endurance, drop_weapon, has_hidden_attack=false, has_stone_skin=false, is_skeleton=false, is_slime=false, is_dragon=false) {
+      this.name = name;
+      this.max_hp = max_hp;
+      this.weapon = weapon;
+      this.strength = strength;
+      this.agility = agility;
+      this.endurance = endurance;
+      this.drop_weapon = drop_weapon;
+      this.has_hidden_attack = has_hidden_attack;
+      this.has_stone_skin = has_stone_skin;
+      this.is_skeleton = is_skeleton;
+      this.is_slime = is_slime;
+      this.is_dragon = is_dragon;
+      this.hp = 0;
+      this.turns_done = 0;
+    }
+    reset_for_combat() {
+      this.hp = this.max_hp;
+      this.turns_done = 0;
+    }
+  }
+
+  function randomChoice(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function randomMonster() {
+    const pool = [
+      new Monster("Гоблин", 5, WEAPONS["Кинжал"], 1, 1, 1, WEAPONS["Кинжал"]),
+      new Monster("Скелет", 10, WEAPONS["Дубина"], 2, 2, 1, WEAPONS["Дубина"], false, false, true),
+      new Monster("Слайм", 8, WEAPONS["Копье"], 3, 1, 2, WEAPONS["Копье"], false, false, false, true),
+      new Monster("Призрак", 6, WEAPONS["Меч"], 1, 3, 1, WEAPONS["Меч"], true),
+      new Monster("Голем", 10, WEAPONS["Топор"], 3, 1, 3, WEAPONS["Топор"], false, true),
+      new Monster("Дракон", 20, WEAPONS["Легендарный Меч"], 4, 3, 3, WEAPONS["Легендарный Меч"], false, false, false, false, true),
+    ];
+    const m = randomChoice(pool);
+    const c = new Monster(m.name, m.max_hp, m.weapon, m.strength, m.agility, m.endurance, m.drop_weapon, m.has_hidden_attack, m.has_stone_skin, m.is_skeleton, m.is_slime, m.is_dragon);
+    c.reset_for_combat();
+    return c;
+  }
+
+  // -------------------- Персонаж --------------------
+  class Character {
+    constructor(base_str, base_agi, base_end, first_class) {
+      this.strength = base_str;
+      this.agility = base_agi;
+      this.endurance = base_end;
+      this.levels = { [CLASS_ROGUE]: 0, [CLASS_WARRIOR]: 0, [CLASS_BARBARIAN]: 0 };
+      this.total_level = 0;
+      this.weapon = CLASS_START_WEAPON[first_class];
+      this.max_hp = 0;
+      this.hp = 0;
+      this.turns_done = 0;
+      this.gain_level(first_class, true);
+      this.hp = this.max_hp;
+    }
+    reset_for_combat() {
+      this.turns_done = 0;
+      this.hp = this.max_hp;
+    }
+    can_level_up() { return this.total_level < 3; }
+    class_level(cls) { return this.levels[cls] || 0; }
+    apply_class_level_bonuses_if_any(cls, new_level_in_class) {
+      if (cls === CLASS_ROGUE) {
+        if (new_level_in_class === 2) this.agility += 1;
+      } else if (cls === CLASS_WARRIOR) {
+        if (new_level_in_class === 3) this.strength += 1;
+      } else if (cls === CLASS_BARBARIAN) {
+        if (new_level_in_class === 3) this.endurance += 1;
+      }
+    }
+    gain_level(cls, silent=false) {
+      if (!this.can_level_up()) return;
+      this.levels[cls] = (this.levels[cls] || 0) + 1;
+      this.total_level += 1;
+      this.apply_class_level_bonuses_if_any(cls, this.levels[cls]);
+      const gained_hp = CLASS_HP_PER_LEVEL[cls] + this.endurance;
+      this.max_hp += gained_hp;
+      this.hp = this.max_hp;
+    }
+    has_rogue_hidden_attack() { return this.class_level(CLASS_ROGUE) >= 1; }
+    has_rogue_poison() { return this.class_level(CLASS_ROGUE) >= 3; }
+    has_warrior_poryv() { return this.class_level(CLASS_WARRIOR) >= 1; }
+    has_warrior_shield() { return this.class_level(CLASS_WARRIOR) >= 2; }
+    has_barbarian_rage() { return this.class_level(CLASS_BARBARIAN) >= 1; }
+    has_barbarian_stone_skin() { return this.class_level(CLASS_BARBARIAN) >= 2; }
+  }
+
+  // -------------------- Бой --------------------
+  function roll_hit(attacker_agility, defender_agility) {
+    const total = attacker_agility + defender_agility;
+    if (total <= 0) return true;
+    const r = 1 + Math.floor(Math.random() * total);
+    return !(r <= defender_agility);
+  }
+
+  function compute_attack_damage({
+    attacker_is_player,
+    attacker_weapon,
+    attacker_strength,
+    attacker_agility,
+    attacker_turns_done,
+    defender_is_player,
+    defender_strength,
+    defender_agility,
+    defender_endurance,
+    defender_traits,
+    player_effects
+  }) {
+    let weapon_component = attacker_weapon.damage;
+    if (defender_traits.is_slime && attacker_weapon.dmg_type === DAMAGE_SLASH) {
+      weapon_component = 0;
+    }
+
+    let flat_bonus = 0;
+    const notes = {};
+
+    // Скрытая атака
+    let has_hidden = false;
+    if (attacker_is_player && player_effects.rogue_hidden) has_hidden = true;
+    if (defender_traits.attacker_is_ghost) has_hidden = true;
+    if (has_hidden && attacker_agility > defender_agility) {
+      flat_bonus += 1; notes.hidden = 1;
+    }
+
+    // Порыв (первый ход)
+    if (attacker_is_player && player_effects.warrior_poryv && attacker_turns_done === 0) {
+      const poryv_extra = attacker_weapon.damage;
+      if (defender_traits.is_slime && attacker_weapon.dmg_type === DAMAGE_SLASH) {
+        flat_bonus += poryv_extra;
+      } else {
+        weapon_component += poryv_extra;
+      }
+      notes.poryv = poryv_extra;
+    }
+
+    // Ярость варвара
+    if (attacker_is_player && player_effects.barbarian_rage) {
+      if (attacker_turns_done < 3) { flat_bonus += 2; notes.rage = 2; }
+      else { flat_bonus -= 1; notes.rage = -1; }
+    }
+
+    // Яд разбойника
+    if (attacker_is_player && player_effects.rogue_poison && attacker_turns_done >= 1) {
+      const poison = attacker_turns_done;
+      flat_bonus += poison; notes.poison = poison;
+    }
+
+    // Дыхание дракона (у атакующего)
+    if (defender_traits.attacker_is_dragon && ((attacker_turns_done + 1) % 3 === 0)) {
+      flat_bonus += 3; notes.dragon_breath = 3;
+    }
+
+    let damage = weapon_component + attacker_strength + flat_bonus;
+
+    // Защита цели
+    if (defender_is_player && player_effects.warrior_shield_on_def && defender_strength > attacker_strength) {
+      damage -= 3; notes.shield = -3;
+    }
+    if (defender_is_player && player_effects.barbarian_skin_on_def && defender_endurance > 0) {
+      damage -= defender_endurance; notes.stone_skin = -defender_endurance;
+    }
+    if (defender_traits.is_golem && defender_endurance > 0) {
+      damage -= defender_endurance; notes.golem_skin = -defender_endurance;
+    }
+    if (defender_traits.is_skeleton && attacker_weapon.dmg_type === DAMAGE_BLUNT) {
+      damage *= 2; notes.skeleton_x2 = 2;
+    }
+
+    if (damage < 0) damage = 0;
+    return { damage, notes };
+  }
+
+  // -------------------- Состояние игры --------------------
+  const Phase = {
+    Choose: 'choose_class',
+    Fight: 'in_fight',
+    Loot: 'loot',
+    LevelUp: 'level_up',
+    Victory: 'victory',
+    Defeat: 'defeat',
+  };
+
+  function randAttr() { return 1 + Math.floor(Math.random() * 3); }
+
+  function newGameState() {
+    const base_str = randAttr(), base_agi = randAttr(), base_end = randAttr();
+    return {
+      base_str, base_agi, base_end,
+      chosen_class: null,
+      player: null,
+      monster: null,
+      wins_in_row: 0,
+      phase: Phase.Choose,
+      log: [
+        "Создание персонажа. Выберите класс.",
+        `Атрибуты: Сила ${base_str}, Ловк ${base_agi}, Вынос ${base_end}`
+      ],
+      player_turn: true,
+      round_idx: 1,
+      auto: true,
+      speedMs: 600,
+      lastNotes: [],
+      prevPlayerHP: null,
+      prevMonsterHP: null,
     };
+  }
 
-    // DOM
-    const grid = document.getElementById('grid');
-    const statusEl = document.getElementById('status');
-    const diffSel = document.getElementById('difficulty');
-    const newBtn = document.getElementById('newGame');
-    const colorSel = document.getElementById('colorSel');
-    const firstSel = document.getElementById('firstSel');
-    const badge = document.getElementById('badge');
+  const state = newGameState();
 
-    // Modal DOM
-    const endModal = document.getElementById('endModal');
-    const endHeading = document.getElementById('endHeading');
-    const endText = document.getElementById('endText');
-    const endDot = document.getElementById('endDot');
-    const playAgainBtn = document.getElementById('playAgainBtn');
-    const closeModalBtn = document.getElementById('closeModalBtn');
+  function player_effects_for(player) {
+    return {
+      rogue_hidden: player.has_rogue_hidden_attack(),
+      rogue_poison: player.has_rogue_poison(),
+      warrior_poryv: player.has_warrior_poryv(),
+      warrior_shield_on_def: player.has_warrior_shield(),
+      barbarian_rage: player.has_barbarian_rage(),
+      barbarian_skin_on_def: player.has_barbarian_stone_skin(),
+    };
+  }
 
-    // Score DOM
-    const scWinsEl = document.getElementById('scWins');
-    const scLossesEl = document.getElementById('scLosses');
-    const resetScoreBtn = document.getElementById('resetScore');
+  // -------------------- Авто-ходы --------------------
+  let autoplayTimer = null;
 
-    // Счёт (локально хранится)
-    const score = { wins: 0, losses: 0 };
-
-    function loadScore() {
-      try {
-        const s = JSON.parse(localStorage.getItem('rusCheckersScore') || '{}');
-        score.wins = Number.isFinite(s?.wins) ? s.wins : 0;
-        score.losses = Number.isFinite(s?.losses) ? s.losses : 0;
-      } catch {}
-      updateScoreUI();
+  function stopAutoplay() {
+    if (autoplayTimer !== null) {
+      clearInterval(autoplayTimer);
+      autoplayTimer = null;
     }
-    function saveScore() {
-      localStorage.setItem('rusCheckersScore', JSON.stringify(score));
-    }
-    function updateScoreUI() {
-      scWinsEl.textContent = score.wins;
-      scLossesEl.textContent = score.losses;
-    }
-    function incScore(kind) {
-      if (kind === 'win') score.wins++;
-      else if (kind === 'lose') score.losses++;
-      saveScore(); updateScoreUI();
-    }
-    resetScoreBtn.addEventListener('click', () => {
-      score.wins = 0; score.losses = 0; saveScore(); updateScoreUI();
-    });
+    setAutoStatus();
+  }
 
-    function updateBadge() {
-      badge.innerHTML = `<span class="dot"></span> Вы играете ${humanColor===W?'белыми':'чёрными'}`;
-    }
+  function startAutoplay() {
+    stopAutoplay();
+    if (!state.auto || state.phase !== Phase.Fight) return;
+    autoplayTimer = setInterval(() => {
+      if (state.phase !== Phase.Fight) { stopAutoplay(); return; }
+      do_turn();
+    }, state.speedMs);
+    setAutoStatus();
+  }
 
-    diffSel.addEventListener('change', () => {
-      const v = diffSel.value;
-      if (v === 'pro') {
-        state.mode = 'pro';
+  function setAutoStatus() {
+    const s = document.getElementById("auto-status");
+    if (!s) return;
+    s.textContent = state.phase === Phase.Fight
+      ? (autoplayTimer ? "Ходы выполняются автоматически…" : "Пауза")
+      : "Ожидание…";
+  }
+
+  // -------------------- Бой --------------------
+  function start_fight() {
+    const p = state.player;
+    const m = randomMonster();
+    state.monster = m;
+    p.reset_for_combat();
+    m.reset_for_combat();
+
+    // Кто ходит первым
+    let player_turn = !(m.agility > p.agility);
+    state.player_turn = player_turn;
+    state.round_idx = 1;
+    state.phase = Phase.Fight;
+    state.lastNotes = [];
+    state.prevMonsterHP = m.hp;
+    state.prevPlayerHP = p.hp;
+
+    state.log.push("");
+    state.log.push("====================================");
+    state.log.push(`Противник: ${m.name}`);
+    state.log.push(`HP: ${m.hp}/${m.max_hp}, Сила ${m.strength}, Ловк ${m.agility}, Вынос ${m.endurance}`);
+    state.log.push(`Оружие: ${m.weapon.name} (${m.weapon.damage}, ${m.weapon.dmg_type})`);
+    state.log.push("====================================");
+    state.log.push(`-- Раунд ${state.round_idx} --`);
+    render();
+    if (state.auto) startAutoplay();
+  }
+
+  function do_turn() {
+    if (state.phase !== Phase.Fight || !state.player || !state.monster) return;
+    const p = state.player, m = state.monster;
+    const effects = player_effects_for(p);
+    state.lastNotes = [];
+
+    if (state.player_turn) {
+      if (!roll_hit(p.agility, m.agility)) {
+        state.log.push("Игрок промахивается!");
       } else {
-        state.mode = 'depth';
-        state.difficulty = parseInt(v, 10);
-      }
-      if (state.turn === humanColor) {
-        state.legalMoves = getAllMoves(state.board, humanColor);
-        render();
-      }
-    }, { passive: true });
-
-    colorSel.addEventListener('change', () => {
-      humanColor = (colorSel.value === 'W') ? W : B;
-      aiColor = -humanColor;
-      updateBadge();
-    }, { passive: true });
-
-    firstSel.addEventListener('change', ()=>{}, { passive: true });
-
-    newBtn.addEventListener('click', () => newGame(), { passive: true });
-
-    // Modal helpers
-    function showEndModal(type) {
-      // type: 'win' | 'lose' | 'draw'
-      const map = {
-        win:  { title: 'Победа!', text: 'У соперника нет ходов. Сыграем ещё раз?', color: 'var(--ok)' },
-        lose: { title: 'Поражение', text: 'У вас нет ходов. Попробуете ещё?', color: 'var(--bad)' },
-        draw: { title: 'Ничья', text: 'Партия завершилась вничью. Сыграть ещё раз?', color: 'var(--accent)' }
-      };
-      const m = map[type] || map.draw;
-      endHeading.textContent = m.title;
-      endText.textContent = m.text;
-      endDot.style.background = m.color;
-      endModal.classList.add('show');
-      document.body.style.overflow = 'hidden';
-    }
-    function hideEndModal() {
-      endModal.classList.remove('show');
-      document.body.style.overflow = '';
-    }
-
-    playAgainBtn.addEventListener('click', () => { hideEndModal(); newGame(); });
-    closeModalBtn.addEventListener('click', () => hideEndModal());
-    endModal.addEventListener('click', (e) => { if (e.target === endModal) hideEndModal(); });
-
-    // Утилиты
-    const inBounds = (r,c) => r>=0 && r<SIZE && c>=0 && c<SIZE;
-    const cloneBoard = (b) => b.map(row => row.slice());
-    const pieceColor = (v) => v === EMPTY ? 0 : (v > 0 ? W : B);
-    const isKing = (v) => Math.abs(v) === 2;
-    const isDark = (r,c) => (r+c)%2===1;
-    const getSqEl = (r,c) => grid.querySelector(`.sq[data-r="${r}"][data-c="${c}"]`);
-
-    // Стартовая позиция: чёрные сверху, белые снизу
-    function newBoard() {
-      const b = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
-      for (let r = 0; r < 3; r++) for (let c = 0; c < SIZE; c++) if ((r+c)%2===1) b[r][c] = B;
-      for (let r = SIZE-3; r < SIZE; r++) for (let c = 0; c < SIZE; c++) if ((r+c)%2===1) b[r][c] = W;
-      return b;
-    }
-
-    function newGame() {
-      hideEndModal();
-      humanColor = (colorSel.value === 'W') ? W : B;
-      aiColor = -humanColor;
-      updateBadge();
-
-      state.board = newBoard();
-      state.selected = null;
-      state.gameOver = false;
-      state.aiThinking = false;
-      state.drag = null;
-
-      const whoFirst = firstSel.value; // 'player' | 'ai'
-      state.turn = (whoFirst === 'player') ? humanColor : aiColor;
-      state.legalMoves = getAllMoves(state.board, state.turn);
-      setStatus();
-      render();
-
-      if (state.turn === aiColor) {
-        setTimeout(aiTurn, 80);
-      }
-    }
-
-    function setStatus(text) {
-      if (text) { statusEl.textContent = text; return; }
-      if (state.gameOver) return;
-      if (state.turn === humanColor) {
-        statusEl.textContent = `Ваш ход (${humanColor===W?'белые':'чёрные'}).`;
-      } else {
-        statusEl.textContent = state.mode === 'pro' ? 'Ход компьютера (Профи)...' : 'Ход компьютера...';
-      }
-    }
-
-    // Генерация ходов (русские шашки)
-    function getAllMoves(board, player) {
-      const captureMoves = [];
-      const quietMoves = [];
-
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
-          const v = board[r][c];
-          if (pieceColor(v) !== player) continue;
-          const from = [r,c];
-
-          const caps = generateCaptures(board, from, v);
-          captureMoves.push(...caps);
-
-          if (caps.length === 0) {
-            if (isKing(v)) {
-              for (const [dr,dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
-                let rr = r + dr, cc = c + dc;
-                while (inBounds(rr,cc) && board[rr][cc] === EMPTY) {
-                  quietMoves.push({ from, to:[rr,cc], captures: [], promote: false, path: [[r,c],[rr,cc]] });
-                  rr += dr; cc += dc;
-                }
-              }
-            } else {
-              const dir = (player === W) ? -1 : 1; // простые — только вперёд
-              for (const dc of [-1,1]) {
-                const rr = r + dir, cc = c + dc;
-                if (inBounds(rr,cc) && board[rr][cc] === EMPTY) {
-                  const promote = (player === W && rr === 0) || (player === B && rr === SIZE-1);
-                  quietMoves.push({ from, to:[rr,cc], captures: [], promote, path: [[r,c],[rr,cc]] });
-                }
-              }
-            }
-          }
-        }
-      }
-
-      if (captureMoves.length > 0) {
-        let maxCap = 0;
-        for (const m of captureMoves) if (m.captures.length > maxCap) maxCap = m.captures.length;
-        return captureMoves.filter(m => m.captures.length === maxCap);
-      }
-      return quietMoves;
-    }
-
-    function generateCaptures(board, from, v) {
-      const player = pieceColor(v);
-      const results = [];
-      const visited = new Set();
-
-      const [r,c] = from;
-      if (isKing(v)) {
-        dfsKing(board, r, c, player, [], [from], results, visited);
-      } else {
-        dfsMan(board, r, c, player, [], [from], results, visited, false);
-      }
-      return results;
-    }
-
-    // DFS для простой шашки (обратные взятия, коронация "на лету")
-    function dfsMan(board, r, c, player, captures, path, results, visited, becameKingDuringRun) {
-      let any = false;
-      for (const [dr,dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
-        const mr = r + dr, mc = c + dc;
-        const lr = r + 2*dr, lc = c + 2*dc;
-        if (!inBounds(mr,mc) || !inBounds(lr,lc)) continue;
-        const adj = board[mr][mc];
-        if (adj === EMPTY || pieceColor(adj) === player) continue;
-        const capKey = mr+','+mc;
-        if (visited.has(capKey)) continue;
-        if (board[lr][lc] !== EMPTY) continue;
-
-        const b2 = cloneBoard(board);
-        const selfVal = b2[r][c];
-        b2[r][c] = EMPTY;
-        b2[mr][mc] = EMPTY;
-
-        let newVal = selfVal;
-        const promoteNow = (player === W && lr === 0) || (player === B && lr === SIZE-1);
-        if (promoteNow) newVal = (player === W) ? WK : BK;
-        b2[lr][lc] = newVal;
-
-        const newCaptures = captures.concat([[mr,mc]]);
-        const newPath = path.concat([[lr,lc]]);
-        const visited2 = new Set(visited);
-        visited2.add(capKey);
-        any = true;
-
-        if (promoteNow) {
-          dfsKing(b2, lr, lc, player, newCaptures, newPath, results, visited2);
-        } else {
-          dfsMan(b2, lr, lc, player, newCaptures, newPath, results, visited2, becameKingDuringRun);
-        }
-      }
-      if (!any && captures.length > 0) {
-        results.push({
-          from: path[0],
-          to: path[path.length-1],
-          captures: captures.slice(),
-          promote: isKing(board[r][c]) || becameKingDuringRun || ((player===W && r===0) || (player===B && r===SIZE-1)),
-          path: path.slice()
+        const { damage, notes } = compute_attack_damage({
+          attacker_is_player: true,
+          attacker_weapon: p.weapon,
+          attacker_strength: p.strength,
+          attacker_agility: p.agility,
+          attacker_turns_done: p.turns_done,
+          defender_is_player: false,
+          defender_strength: m.strength,
+          defender_agility: m.agility,
+          defender_endurance: m.endurance,
+          defender_traits: {
+            is_skeleton: m.is_skeleton,
+            is_slime: m.is_slime,
+            is_golem: m.has_stone_skin,
+            attacker_is_ghost: false,
+            attacker_is_dragon: false,
+          },
+          player_effects: effects
         });
-      }
-    }
-
-    // DFS для летающей дамки
-    function dfsKing(board, r, c, player, captures, path, results, visited) {
-      let any = false;
-      for (const [dr,dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
-        let rr = r + dr, cc = c + dc;
-        while (inBounds(rr,cc) && board[rr][cc] === EMPTY) { rr += dr; cc += dc; }
-        if (!inBounds(rr,cc)) continue;
-        const target = board[rr][cc];
-        if (target === EMPTY || pieceColor(target) === player) continue;
-        const capKey = rr+','+cc;
-        if (visited.has(capKey)) continue;
-
-        let lr = rr + dr, lc = cc + dc;
-        while (inBounds(lr,lc) && board[lr][lc] === EMPTY) {
-          const b2 = cloneBoard(board);
-          const selfVal = b2[r][c];
-          b2[r][c] = EMPTY;
-          b2[rr][cc] = EMPTY;
-          b2[lr][lc] = selfVal;
-
-          const newCaptures = captures.concat([[rr,cc]]);
-          const newPath = path.concat([[lr,lc]]);
-          const visited2 = new Set(visited);
-          visited2.add(capKey);
-          any = true;
-          dfsKing(b2, lr, lc, player, newCaptures, newPath, results, visited2);
-
-          lr += dr; lc += dc;
+        m.hp -= damage;
+        state.log.push(`Игрок бьёт (${p.weapon.name}) и наносит ${damage} урона. [${m.name} HP ${Math.max(m.hp,0)}/${m.max_hp}]`);
+        const noteKeys = Object.keys(notes);
+        if (noteKeys.length) {
+          state.lastNotes = noteKeys.map(k => `${k}:${notes[k]}`);
+          state.log.push("Эффекты: " + state.lastNotes.join(", "));
+        }
+        p.turns_done += 1;
+        if (m.hp <= 0) {
+          state.log.push(`${m.name} повержен!`);
+          state.wins_in_row += 1;
+          state.log.push(`Победа! Серия побед: ${state.wins_in_row}`);
+          p.hp = p.max_hp; // лечение
+          state.phase = Phase.Loot;
+          render();
+          stopAutoplay();
+          return;
         }
       }
-      if (!any && captures.length > 0) {
-        results.push({
-          from: path[0],
-          to: path[path.length-1],
-          captures: captures.slice(),
-          promote: true,
-          path: path.slice()
-        });
-      }
-    }
-
-    // Применение хода
-    function applyMove(board, move) {
-      const b = cloneBoard(board);
-      const [fr,fc] = move.from;
-      const [tr,tc] = move.to;
-      let v = b[fr][fc];
-      b[fr][fc] = EMPTY;
-      for (const [cr,cc] of move.captures) b[cr][cc] = EMPTY;
-
-      if (!isKing(v)) {
-        const player = pieceColor(v);
-        const promote = move.promote || (player === W && tr === 0) || (player === B && tr === SIZE-1);
-        if (promote) v = (player === W) ? WK : BK;
-      }
-      b[tr][tc] = v;
-      return b;
-    }
-
-    // Ключ позиции для кэша
-    function boardKey(board, playerToMove) {
-      let s = '';
-      for (let r=0;r<SIZE;r++){
-        for (let c=0;c<SIZE;c++){
-          const v = board[r][c];
-          s += v===EMPTY?'.' : (v===W?'w': v===WK?'W': v===B?'b':'B');
-        }
-      }
-      return s + (playerToMove===W?'w':'b');
-    }
-
-    // Оценка
-    function evalWhiteMinusBlack(board) {
-      let score = 0;
-      for (let r=0;r<SIZE;r++){
-        for (let c=0;c<SIZE;c++){
-          const v = board[r][c];
-          if (v === EMPTY) continue;
-          const color = pieceColor(v);
-          const isK = isKing(v);
-          const mat = isK ? 300 : 100;
-          let adv = 0;
-          if (!isK) adv = (color===W ? (7 - r) : r) * 3;
-          const center = (r>=2 && r<=5 && c>=2 && c<=5) ? 4 : 0;
-          const val = mat + adv + center;
-          score += (color===W) ? val : -val;
-        }
-      }
-      const mob = (side)=> {
-        let m=0;
-        for (let r=0;r<SIZE;r++){
-          for (let c=0;c<SIZE;c++){
-            const v = board[r][c]; if (pieceColor(v)!==side) continue;
-            if (isKing(v)) {
-              for (const [dr,dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
-                let rr=r+dr, cc=c+dc;
-                if (inBounds(rr,cc) && board[rr][cc]===EMPTY) m++;
-              }
-            } else {
-              const dir = (side===W)?-1:1;
-              for (const dc of [-1,1]) {
-                const rr = r+dir, cc = c+dc;
-                if (inBounds(rr,cc) && board[rr][cc]===EMPTY) m++;
-              }
-            }
-          }
-        }
-        return m;
-      };
-      score += 2*(mob(W)-mob(B));
-      return score;
-    }
-    function evaluate(board, povColor) {
-      const base = evalWhiteMinusBlack(board);
-      return povColor === W ? base : -base;
-    }
-
-    // Обычный ИИ (фиксированная глубина)
-    function aiBestMove(board, depth, aiCol) {
-      let best = null, bestScore = -Infinity;
-      const moves = orderMoves(getAllMoves(board, aiCol));
-      if (moves.length === 0) return null;
-
-      let alpha=-Infinity, beta=Infinity;
-      for (const m of moves) {
-        const b2 = applyMove(board, m);
-        const s = minimax(b2, depth-1, -aiCol, aiCol, alpha, beta);
-        if (s > bestScore) { bestScore = s; best = m; }
-        alpha = Math.max(alpha, s);
-        if (alpha >= beta) break;
-      }
-      return best;
-    }
-    function minimax(board, depth, side, pov, alpha, beta) {
-      const moves = getAllMoves(board, side);
-      if (depth === 0 || moves.length === 0) {
-        if (moves.length === 0) {
-          return evaluate(board, pov) + (side === pov ? -10000 : 10000);
-        }
-        return evaluate(board, pov);
-      }
-      if (side === pov) {
-        let value = -Infinity;
-        for (const m of orderMoves(moves)) {
-          const b2 = applyMove(board, m);
-          value = Math.max(value, minimax(b2, depth-1, -side, pov, alpha, beta));
-          alpha = Math.max(alpha, value);
-          if (alpha >= beta) break;
-        }
-        return value;
+    } else {
+      if (!roll_hit(m.agility, p.agility)) {
+        state.log.push(`${m.name} промахивается!`);
       } else {
-        let value = Infinity;
-        for (const m of orderMoves(moves)) {
-          const b2 = applyMove(board, m);
-          value = Math.min(value, minimax(b2, depth-1, -side, pov, alpha, beta));
-          beta = Math.min(beta, value);
-          if (alpha >= beta) break;
+        const { damage, notes } = compute_attack_damage({
+          attacker_is_player: false,
+          attacker_weapon: m.weapon,
+          attacker_strength: m.strength,
+          attacker_agility: m.agility,
+          attacker_turns_done: m.turns_done,
+          defender_is_player: true,
+          defender_strength: p.strength,
+          defender_agility: p.agility,
+          defender_endurance: p.endurance,
+          defender_traits: {
+            is_skeleton: false,
+            is_slime: false,
+            is_golem: false,
+            attacker_is_ghost: m.has_hidden_attack,
+            attacker_is_dragon: m.is_dragon,
+          },
+          player_effects: effects
+        });
+        p.hp -= damage;
+        state.log.push(`${m.name} атакует (${m.weapon.name}) и наносит ${damage} урона. [Игрок HP ${Math.max(p.hp,0)}/${p.max_hp}]`);
+        const noteKeys = Object.keys(notes);
+        if (noteKeys.length) {
+          state.lastNotes = noteKeys.map(k => `${k}:${notes[k]}`);
+          state.log.push("Эффекты: " + state.lastNotes.join(", "));
         }
-        return value;
+        m.turns_done += 1;
+        if (p.hp <= 0) {
+          state.log.push("Игрок пал в бою...");
+          state.phase = Phase.Defeat;
+          render();
+          stopAutoplay();
+          return;
+        }
       }
     }
-    function orderMoves(moves) {
-      return moves.slice().sort((a,b) => {
-        if (b.captures.length !== a.captures.length) return b.captures.length - a.captures.length;
-        return (a.promote===b.promote)?0:(b.promote?1:-1);
+
+    state.player_turn = !state.player_turn;
+    state.round_idx += 1;
+    state.log.push(`-- Раунд ${state.round_idx} --`);
+    render();
+  }
+
+  // -------------------- UI --------------------
+  const el = id => document.getElementById(id);
+  const show = (id, on=true) => el(id).style.display = on ? "" : "none";
+  const setText = (id, val) => el(id).textContent = String(val);
+
+  function hpColor(pct){
+    // 0% -> red, 100% -> green
+    const hue = Math.max(0, Math.min(120, Math.round(pct * 120)));
+    return `hsl(${hue} 75% 45%)`;
+  }
+
+  function setHPBar(prefix, cur, max){
+    const bar = el(prefix+"bar");
+    const fill = el(prefix+"bar-fill");
+    const txt  = el(prefix+"bar-text");
+    if (!bar || !fill || !txt) return;
+    const pct = Math.max(0, Math.min(1, max ? cur/max : 0));
+    fill.style.width = (pct*100) + "%";
+    fill.style.background = hpColor(pct);
+    txt.textContent = `${Math.max(cur,0)}/${max}`;
+  }
+
+  function flashOnHit(prefix){
+    const bar = el(prefix+"bar");
+    if (!bar) return;
+    bar.classList.remove("hit");
+    void bar.offsetWidth;
+    bar.classList.add("hit");
+    setTimeout(()=>bar.classList.remove("hit"), 500);
+  }
+
+  function chipize(id, text, type){
+    const chip = el(id);
+    chip.classList.remove("red","blue","brown");
+    chip.classList.add(dmgChipClass(type));
+    chip.querySelector("span").textContent = text;
+  }
+
+  function render() {
+    // Верхние показатели
+    setText("wins", state.wins_in_row);
+    setText("speedval", `${state.speedMs} мс`);
+    el("speed").value = state.speedMs;
+
+    // Стартовые атрибуты
+    setText("bstr", state.base_str);
+    setText("bagi", state.base_agi);
+    setText("bend", state.base_end);
+
+    // Показ секций
+    show("choose", state.phase === Phase.Choose);
+    show("fight", state.phase === Phase.Fight);
+    show("loot", state.phase === Phase.Loot);
+    show("levelup", state.phase === Phase.LevelUp);
+    show("victory", state.phase === Phase.Victory);
+    show("defeat", state.phase === Phase.Defeat);
+
+    // Кнопки управления
+    el("btn-pause").textContent = autoplayTimer ? "⏸ Пауза" : "▶️ Продолжить";
+
+    // Игрок
+    if (state.player){
+      const p = state.player;
+      setHPBar("p", p.hp, p.max_hp);
+      // подсветка удара
+      if (state.prevPlayerHP != null && p.hp < state.prevPlayerHP) flashOnHit("p");
+      state.prevPlayerHP = p.hp;
+
+      setText("pstr", p.strength);
+      setText("pagi", p.agility);
+      setText("pend", p.endurance);
+      setText("lv-rogue", p.class_level(CLASS_ROGUE));
+      setText("lv-warrior", p.class_level(CLASS_WARRIOR));
+      setText("lv-barbarian", p.class_level(CLASS_BARBARIAN));
+      setText("wname", p.weapon.name);
+      setText("wdmg", p.weapon.damage);
+      el("wicon").textContent = weaponIcon(p.weapon.name);
+      chipize("wdtype-chip", p.weapon.dmg_type, p.weapon.dmg_type);
+    }
+
+    // Монстр
+    if (state.monster){
+      const m = state.monster;
+      setText("mname", m.name);
+      el("memoji").textContent = monsterIcon(m.name);
+      setHPBar("m", m.hp, m.max_hp);
+      if (state.prevMonsterHP != null && m.hp < state.prevMonsterHP) flashOnHit("m");
+      state.prevMonsterHP = m.hp;
+
+      setText("mstr", m.strength);
+      setText("magi", m.agility);
+      setText("mend", m.endurance);
+      setText("mwname", m.weapon.name);
+      setText("mwdmg", m.weapon.damage);
+      el("mwicon").textContent = weaponIcon(m.weapon.name);
+      chipize("mwdtype-chip", m.weapon.dmg_type, m.weapon.dmg_type);
+    }
+
+    // Лут
+    if (state.phase === "loot" && state.monster && state.player){
+      const drop = state.monster.drop_weapon, cur = state.player.weapon;
+      setText("loot-name", drop.name);
+      setText("loot-dmg", drop.damage);
+      chipize("loot-type-chip", drop.dmg_type, drop.dmg_type);
+      el("loot-emoji").textContent = weaponIcon(drop.name);
+
+      setText("curw-name", cur.name);
+      setText("curw-dmg", cur.damage);
+      chipize("curw-type-chip", cur.dmg_type, cur.dmg_type);
+      el("curw-emoji").textContent = weaponIcon(cur.name);
+    }
+
+    // Эффекты последнего удара
+    const eff = el("last-effects");
+    eff.innerHTML = "";
+    if (state.phase === Phase.Fight && state.lastNotes.length){
+      state.lastNotes.forEach(n => {
+        const d = document.createElement("div");
+        d.className = "chip";
+        d.textContent = n;
+        eff.appendChild(d);
       });
     }
 
-    // Профи+: ИД + TT + Quiescence + аспирационные окна
-    const TT = new Map();
-    function aiProMove(board, timeMs, aiCol) {
-      const start = performance.now();
-      const deadline = start + timeMs;
-      TT.clear();
+    // Журнал — автопрокрутка вниз
+    const logEl = el("log");
+    logEl.textContent = state.log.slice(-300).join("\n");
+    logEl.scrollTop = logEl.scrollHeight;
 
-      let bestMove = null;
-      let prevScore = 0;
+    setAutoStatus();
+  }
 
-      for (let depth=1; depth<=20; depth++) {
-        let alpha = prevScore - 75, beta = prevScore + 75;
-        let res = searchPV(board, depth, alpha, beta, aiCol, aiCol, deadline, null);
-        if (res.timeout) return bestMove ?? res.bestMove ?? null;
+  // -------------------- События --------------------
+  document.body.addEventListener("click", (e) => {
+    const t = e.target;
 
-        if (res.score <= alpha || res.score >= beta) {
-          res = searchPV(board, depth, -Infinity, Infinity, aiCol, aiCol, deadline, res.bestMove);
-          if (res.timeout) return bestMove ?? res.bestMove ?? null;
-        }
-
-        if (res.bestMove) bestMove = res.bestMove;
-        prevScore = res.score;
-
-        if (performance.now() > deadline) break;
-      }
-      return bestMove;
-    }
-    function searchPV(board, depth, alpha, beta, side, pov, deadline, hintMove) {
-      let timeout = false;
-      let bestMove = null;
-
-      function inner(nodeBoard, d, a, b, sideToMove, ply) {
-        if (performance.now() > deadline) { timeout = true; return 0; }
-
-        const key = boardKey(nodeBoard, sideToMove);
-        const tt = TT.get(key);
-        const a0 = a, b0 = b;
-
-        if (tt && tt.depth >= d) {
-          if (tt.flag === 'EXACT') return tt.value;
-          if (tt.flag === 'LOW') a = Math.max(a, tt.value);
-          if (tt.flag === 'HIGH') b = Math.min(b, tt.value);
-          if (a >= b) return tt.value;
-        }
-
-        const moves = getAllMoves(nodeBoard, sideToMove);
-        if (d === 0 || moves.length === 0) {
-          if (moves.length === 0) {
-            return evaluate(nodeBoard, pov) + (sideToMove === pov ? -10000 : 10000);
-          }
-          return quiesce(nodeBoard, a, b, sideToMove, pov, deadline);
-        }
-
-        const ordered = orderMovesPro(moves, tt?.move || (ply===0 ? hintMove : null));
-
-        let value, bestLocal = null;
-        if (sideToMove === pov) {
-          value = -Infinity;
-          for (const m of ordered) {
-            const b2 = applyMove(nodeBoard, m);
-            const s = inner(b2, d-1, a, b, -sideToMove, ply+1);
-            if (timeout) return 0;
-            if (s > value) { value = s; bestLocal = m; }
-            a = Math.max(a, value);
-            if (a >= b) break;
-          }
-        } else {
-          value = Infinity;
-          for (const m of ordered) {
-            const b2 = applyMove(nodeBoard, m);
-            const s = inner(b2, d-1, a, b, -sideToMove, ply+1);
-            if (timeout) return 0;
-            if (s < value) { value = s; bestLocal = m; }
-            b = Math.min(b, value);
-            if (a >= b) break;
-          }
-        }
-
-        const flag = (value <= a0) ? 'HIGH' : (value >= b0 ? 'LOW' : 'EXACT');
-        TT.set(key, { depth: d, flag, value, move: bestLocal });
-        if (ply === 0) bestMove = bestLocal;
-        return value;
-      }
-
-      const score = inner(board, depth, alpha, beta, side, 0);
-      return { score, bestMove, timeout };
-    }
-    function orderMovesPro(moves, ttMove) {
-      const keyOf = (m)=> `${m.from[0]}${m.from[1]}-${m.to[0]}${m.to[1]}:${m.captures.length}`;
-      const ttKey = ttMove ? keyOf(ttMove) : null;
-      return moves.slice().sort((a,b) => {
-        const ak = keyOf(a), bk = keyOf(b);
-        if (ttKey && ak === ttKey) return -1;
-        if (ttKey && bk === ttKey) return 1;
-        if (b.captures.length !== a.captures.length) return b.captures.length - a.captures.length;
-        if (a.promote !== b.promote) return b.promote ? 1 : -1;
-        return 0;
-      });
-    }
-    function quiesce(board, alpha, beta, side, pov, deadline) {
-      const stand = evaluate(board, pov);
-      if (side === pov) {
-        if (stand >= beta) return stand;
-        if (stand > alpha) alpha = stand;
-      } else {
-        if (stand <= alpha) return stand;
-        if (stand < beta) beta = stand;
-      }
-
-      if (performance.now() > deadline) return stand;
-
-      const moves = getAllMoves(board, side).filter(m => m.captures.length > 0);
-      if (moves.length === 0) return stand;
-
-      const ordered = orderMovesPro(moves, null);
-
-      if (side === pov) {
-        let value = -Infinity;
-        for (const m of ordered) {
-          const b2 = applyMove(board, m);
-          const s = quiesce(b2, alpha, beta, -side, pov, deadline);
-          if (s > value) value = s;
-          if (value > alpha) alpha = value;
-          if (alpha >= beta) break;
-        }
-        return value;
-      } else {
-        let value = Infinity;
-        for (const m of ordered) {
-          const b2 = applyMove(board, m);
-          const s = quiesce(b2, alpha, beta, -side, pov, deadline);
-          if (s < value) value = s;
-          if (value < beta) beta = value;
-          if (alpha >= beta) break;
-        }
-        return value;
-      }
-    }
-
-    // Рендер
-    function render() {
-      grid.innerHTML = '';
-      grid.style.pointerEvents = state.aiThinking || state.gameOver ? 'none' : 'auto';
-
-      const starts = new Set(state.legalMoves.map(m => m.from.join(',')));
-      const selectedKey = state.selected ? state.selected.join(',') : null;
-      const movesFromSelected = state.selected
-        ? state.legalMoves.filter(m => m.from[0] === state.selected[0] && m.from[1] === state.selected[1])
-        : [];
-      const dests = new Set(movesFromSelected.map(m => m.to.join(',')));
-      const captureSquares = new Set();
-      movesFromSelected.forEach(m => m.captures.forEach(pos => captureSquares.add(pos.join(','))));
-
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
-          const sq = document.createElement('div');
-          sq.className = 'sq ' + (isDark(r,c) ? 'dark' : 'light');
-          sq.dataset.r = r; sq.dataset.c = c;
-
-          if (r === 0 || c === 0) {
-            const coord = document.createElement('div');
-            coord.className = 'coords';
-            coord.textContent = `${String.fromCharCode(97 + c)}${SIZE - r}`;
-            if (isDark(r,c)) coord.style.opacity = 0.7;
-            sq.appendChild(coord);
-          }
-
-          const v = state.board[r][c];
-          if (v !== EMPTY) {
-            const p = document.createElement('div');
-            p.className = 'piece ' + (v>0 ? 'white' : 'black') + (isKing(v) ? ' king' : '');
-            const key = `${r},${c}`;
-            if (state.turn === humanColor && starts.has(key) && pieceColor(v)===humanColor) p.classList.add('hint');
-            if (selectedKey === key) p.classList.add('selected');
-
-            // Клик-игра (оставляем)
-            p.addEventListener('click', (e) => { e.stopPropagation(); onSquareClick(r,c); }, { passive: true });
-
-            // Перетаскивание
-            p.addEventListener('pointerdown', (e) => onPiecePointerDown(e, r, c, p));
-
-            sq.appendChild(p);
-          }
-
-          if (captureSquares.has(`${r},${c}`)) sq.classList.add('capture-mark');
-
-          if (isDark(r,c)) {
-            sq.addEventListener('click', () => onSquareClick(r,c), { passive: true });
-          }
-
-          if (dests.has(`${r},${c}`)) {
-            const dot = document.createElement('div');
-            dot.className = 'dest';
-            dot.addEventListener('click', (e) => { e.stopPropagation(); onDestClick(r,c); }, { passive: true });
-            sq.appendChild(dot);
-          }
-
-          grid.appendChild(sq);
-        }
-      }
-    }
-
-    function onSquareClick(r, c) {
-      if (state.gameOver || state.turn !== humanColor) return;
-      const v = state.board[r][c];
-      if (v !== EMPTY && pieceColor(v) === humanColor) {
-        state.selected = [r,c];
-        render();
-      }
-    }
-
-    function onDestClick(r, c) {
-      if (!state.selected) return;
-      const move = state.legalMoves.find(m =>
-        m.from[0] === state.selected[0] && m.from[1] === state.selected[1] &&
-        m.to[0] === r && m.to[1] === c
-      );
-      if (!move) return;
-      doHumanMove(move);
-    }
-
-    function doHumanMove(move) {
-      state.board = applyMove(state.board, move);
-      state.selected = null;
-
-      const oppMoves = getAllMoves(state.board, aiColor);
-      if (oppMoves.length === 0) {
-        state.gameOver = true;
-        setStatus('Вы выиграли! У соперника нет ходов.');
-        render();
-        incScore('win');
-        showEndModal('win');
-        return;
-      }
-
-      state.turn = aiColor;
-      state.legalMoves = oppMoves;
-      setStatus();
+    if (t.id === "btn-restart-top" || t.id === "btn-restart-1" || t.id === "btn-restart-2"){
+      const ng = newGameState();
+      Object.assign(state, ng);
+      stopAutoplay();
       render();
-      setTimeout(aiTurn, 60);
+      return;
     }
 
-    // Перетаскивание
-    function onPiecePointerDown(e, r, c, pieceEl) {
-      if (state.gameOver || state.aiThinking) return;
-      if (state.turn !== humanColor) return;
-      const v = state.board[r][c];
-      if (v === EMPTY || pieceColor(v) !== humanColor) return;
-
-      // есть ли вообще ходы у этой фигуры
-      const movesFrom = state.legalMoves.filter(m => m.from[0] === r && m.from[1] === c);
-      if (movesFrom.length === 0) return;
-
-      e.preventDefault();
-
-      // Готовим карту целей
-      const destMap = new Map();
-      for (const m of movesFrom) destMap.set(m.to.join(','), m);
-
-      // Создаём визуальные метки целей и (опц.) взятий
-      const overlayDots = [];
-      const capSet = new Set();
-      for (const m of movesFrom) m.captures.forEach(([cr,cc]) => capSet.add(`${cr},${cc}`));
-      const capSquares = [];
-      for (const key of destMap.keys()) {
-        const [tr,tc] = key.split(',').map(n=>+n);
-        const sq = getSqEl(tr,tc);
-        if (!sq) continue;
-        const dot = document.createElement('div');
-        dot.className = 'dest drag-dest';
-        sq.appendChild(dot);
-        overlayDots.push(dot);
+    if (t.id === "btn-pause"){
+      if (autoplayTimer){ // pause
+        state.auto = false;
+        stopAutoplay();
+      } else {
+        state.auto = true;
+        startAutoplay();
       }
-      for (const capKey of capSet) {
-        const [cr,cc] = capKey.split(',').map(n=>+n);
-        const csq = getSqEl(cr,cc);
-        if (csq) {
-          csq.classList.add('capture-mark','drag-cap');
-          capSquares.push(csq);
-        }
-      }
-
-      pieceEl.classList.add('dragging');
-      pieceEl.style.transform = 'translate3d(0,0,0)';
-      pieceEl.setPointerCapture(e.pointerId);
-
-      const start = { x: e.clientX, y: e.clientY };
-      const drag = {
-        from: [r,c],
-        el: pieceEl,
-        pointerId: e.pointerId,
-        startX: start.x,
-        startY: start.y,
-        dx: 0, dy: 0,
-        destMap,
-        overlayDots,
-        capSquares
-      };
-      state.drag = drag;
-
-      const onMove = (ev) => {
-        if (!state.drag) return;
-        drag.dx = ev.clientX - drag.startX;
-        drag.dy = ev.clientY - drag.startY;
-        drag.el.style.transform = `translate3d(${drag.dx}px, ${drag.dy}px, 0)`;
-      };
-      const onUp = (ev) => {
-        if (!state.drag) return;
-        cleanupDragListeners();
-        // Определяем на какую клетку бросили
-        const el = document.elementFromPoint(ev.clientX, ev.clientY);
-        const sq = el && el.closest ? el.closest('.sq') : null;
-        let move = null;
-        if (sq && sq.dataset && sq.dataset.r != null) {
-          const key = `${+sq.dataset.r},${+sq.dataset.c}`;
-          move = drag.destMap.get(key) || null;
-        }
-
-        // Очистка визуала
-        for (const d of drag.overlayDots) d.remove();
-        for (const s of drag.capSquares) s.classList.remove('drag-cap','capture-mark');
-        drag.el.classList.remove('dragging');
-        drag.el.style.transform = '';
-
-        state.drag = null;
-
-        if (move) {
-          doHumanMove(move);
-        }
-      };
-      const cleanupDragListeners = () => {
-        pieceEl.releasePointerCapture(drag.pointerId);
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onUp);
-      };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-      window.addEventListener('pointercancel', onUp);
+      render();
+      return;
     }
 
-    function aiTurn() {
-      state.aiThinking = true;
-      setStatus();
+    if (t.id === "btn-step"){
+      if (state.phase === "in_fight"){
+        stopAutoplay();
+        do_turn();
+      }
+      return;
+    }
 
-      setTimeout(() => {
-        let move = null;
-        if (state.mode === 'pro') {
-          move = aiProMove(state.board, state.proTimeMs, aiColor);
-        } else {
-          move = aiBestMove(state.board, state.difficulty, aiColor);
-        }
+    if (t.dataset && t.dataset.action === "choose") {
+      const cls = t.dataset.cls;
+      state.chosen_class = cls;
+      state.player = new Character(state.base_str, state.base_agi, state.base_end, cls);
+      const p = state.player;
+      state.log.push("");
+      state.log.push(`Вы выбрали: ${cls}`);
+      state.log.push(`Начальное оружие: ${p.weapon.name} (${p.weapon.damage}, ${p.weapon.dmg_type})`);
+      state.log.push(`Здоровье: ${p.hp}/${p.max_hp}`);
+      state.log.push(`Уровни: Разбойник ${p.class_level(CLASS_ROGUE)}, Воин ${p.class_level(CLASS_WARRIOR)}, Варвар ${p.class_level(CLASS_BARBARIAN)}`);
+      start_fight();
+      return;
+    }
 
-        if (!move) {
-          // У ИИ нет ходов — ваша победа
-          state.gameOver = true;
-          setStatus('Вы выиграли! У соперника нет ходов.');
-          state.aiThinking = false;
-          render();
-          incScore('win');
-          showEndModal('win');
-          return;
-        }
-        state.board = applyMove(state.board, move);
-
-        const yourMoves = getAllMoves(state.board, humanColor);
-        if (yourMoves.length === 0) {
-          state.gameOver = true;
-          setStatus('Компьютер победил. У вас нет ходов.');
-          state.aiThinking = false;
-          render();
-          incScore('lose');
-          showEndModal('lose');
-          return;
-        }
-
-        state.turn = humanColor;
-        state.legalMoves = yourMoves;
-        state.aiThinking = false;
-        setStatus();
+    if (t.dataset && t.dataset.action === "loot") {
+      if (state.phase !== "loot" || !state.player || !state.monster) return;
+      const take = t.dataset.take === "yes";
+      if (take) {
+        state.player.weapon = state.monster.drop_weapon;
+        state.log.push(`Вы экипировали: ${state.player.weapon.name}`);
+      } else {
+        state.log.push("Вы оставили текущее оружие.");
+      }
+      if (state.player.can_level_up()) {
+        state.phase = "level_up";
         render();
-      }, 80);
+      } else {
+        if (state.wins_in_row >= 5) {
+          state.phase = "victory";
+          render();
+        } else {
+          start_fight();
+        }
+      }
+      return;
     }
 
-    // Старт
-    loadScore();
-    updateBadge();
-    newGame();
-  </script>
+    if (t.dataset && t.dataset.action === "level") {
+      if (state.phase !== "level_up" || !state.player) return;
+      const cls = t.dataset.cls;
+      const p = state.player;
+      const before_hp = p.max_hp, before_str = p.strength, before_agi = p.agility, before_end = p.endurance;
+      p.gain_level(cls, true);
+      const gained_hp = p.max_hp - before_hp;
+      state.log.push(`Повышение уровня: +1 уровень в классе '${cls}'.`);
+      state.log.push(`Прирост HP: +${gained_hp}. Макс HP: ${p.max_hp}.`);
+      state.log.push(`Атрибуты: Сила ${p.strength} (было ${before_str}), Ловк ${p.agility} (было ${before_agi}), Вынос ${p.endurance} (было ${before_end}).`);
+      if (state.wins_in_row >= 5) {
+        state.phase = "victory";
+        render();
+      } else {
+        start_fight();
+      }
+      return;
+    }
+  });
+
+  el("speed").addEventListener("input", (e)=>{
+    state.speedMs = Number(e.target.value);
+    el("speedval").textContent = `${state.speedMs} мс`;
+    if (autoplayTimer){ startAutoplay(); } // перезапустить с новой скоростью
+  });
+
+  // -------------------- Старт --------------------
+  // Показать выбор класса вначале
+  render();
+  show("choose", true);
+})();
+</script>
 </body>
 </html>
